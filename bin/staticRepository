@@ -1,0 +1,71 @@
+#!/usr/bin/env php
+<?php
+
+/*
+ * This file is part of Contao Open ER2 Client API.
+ *
+ * Contao Open ER2 Client API is free software: you can redistribute it
+ * and/or modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation, either version 3 of
+ * the License, or (at your option) any later version.
+ *
+ * Contao Open ER2 Client API is distributed in the hope that it will
+ * be useful, but WITHOUT ANY WARRANTY; without even the implied
+ * warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ * See the GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Contao Open ER2 Client API.
+ * If not, see <http://www.gnu.org/licenses/>.
+ */
+
+function autoload($name)
+{
+	$arrParts = explode('\\', $name);
+
+	if ($arrParts[0] == 'Monolog') {
+		$strFile = __DIR__ . '/../deps/monolog/src/' . implode('/', $arrParts) . '.php';
+	} else {
+		$strFile = __DIR__ . '/../src/' . implode('/', $arrParts) . '.php';
+	}
+
+	if (!file_exists($strFile)) {
+		echo "Could not autoload $name\nfile $strFile does not exists!\n";
+		debug_print_backtrace();
+		exit(1);
+	}
+	require_once($strFile);
+}
+
+spl_autoload_register('autoload');
+
+$client = new \OpenER2\Client();
+
+// set logger
+$client->getLogger()->pushHandler(new \Monolog\Handler\StreamHandler('php://stderr'));
+
+// set languages
+$client->setLanguages(array('de', 'en'));
+
+// set wsdl url
+$client->setWsdl('http://www.contao.org/services/repository.wsdl');
+
+// set database settings
+$client->setDatabaseDsn($argv[1]);
+$client->setDatabaseUser($argv[2]);
+$client->setDatabasePassword($argv[3]);
+$client->setDatabasePersistent(true);
+
+// synchronise the repository
+$repository = $client->getRepository();
+$repository->syncRepository(true);
+
+// serialise the repository information
+$list = array
+(
+	'extensions' => $client->getDatabase()
+		->query("SELECT * FROM open_er2_repository")->fetchAll(\PDO::FETCH_CLASS),
+	'dependencies' => $client->getDatabase()
+		->query("SELECT * FROM open_er2_repository_dependency")->fetchAll(\PDO::FETCH_CLASS)
+);
+echo serialize($list);

@@ -357,6 +357,7 @@ class Client
 		{
 			foreach ($arrSql['CREATE'] as $strSql)
 			{
+				$this->logger->addDebug("Update database:\n" . $strSql);
 				$this->database->exec($strSql);
 			}
 		}
@@ -364,6 +365,15 @@ class Client
 		{
 			foreach ($arrSql['ALTER_ADD'] as $strSql)
 			{
+				$this->logger->addDebug("Update database:\n" . $strSql);
+				$this->database->exec($strSql);
+			}
+		}
+		if (isset($arrSql['ALTER_CHANGE']))
+		{
+			foreach ($arrSql['ALTER_CHANGE'] as $strSql)
+			{
+				$this->logger->addDebug("Update database:\n" . $strSql);
 				$this->database->exec($strSql);
 			}
 		}

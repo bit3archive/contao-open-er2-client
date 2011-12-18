@@ -86,7 +86,6 @@ class DbInstaller
 					}
 					elseif ($sql_current[$k]['TABLE_FIELDS'][$kk] != $vv)
 					{
-						var_dump($sql_current[$k]['TABLE_FIELDS'][$kk], $vv);
 						$return['ALTER_CHANGE'][] = 'ALTER TABLE `'.$k.'` CHANGE `'.$kk.'` '.$vv.';';
 					}
 				}

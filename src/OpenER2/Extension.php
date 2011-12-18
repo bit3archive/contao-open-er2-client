@@ -49,47 +49,38 @@ class Extension
 	 *
 	 * @var int
 	 */
-	protected $recentVersion = 0;
+	protected $recentVersion = -1;
 
 	/**
 	 * Latest version of the extension.
 	 *
 	 * @var int
 	 */
-	protected $latestVersion = 0;
+	protected $latestVersion = -1;
 
 	/**
 	 * Available versions of the extension.
 	 *
 	 * @var array
 	 */
-	protected $availableVersions = array();
+	protected $availableVersions = null;
 
 	/**
 	 * The installed version.
 	 *
 	 * @var int
 	 */
-	protected $installedVersion = 0;
+	protected $installedVersion = -1;
 
 	/**
 	 * @param Client $client
-	 */
-	public function __construct(Client $client)
-	{
-		$this->client = $client;
-	}
-
-	/**
-	 * Set the extension name.
-	 *
 	 * @param string $name
 	 */
-	public function setName($name)
+	public function __construct(Client $client, $name)
 	{
-		$this->name = $name;
+		$this->client = $client;
+		$this->name   = $name;
 	}
-
 	/**
 	 * Get the extension name.
 	 *
@@ -101,33 +92,93 @@ class Extension
 	}
 
 	/**
-	 * Get recent version.
-	 *
-	 * @param int $recentVersion
-	 */
-	public function setRecentVersion($recentVersion)
-	{
-		$this->recentVersion = $recentVersion;
-	}
-
-	/**
 	 * Set recent version.
 	 *
+	 * @param int $minVersion
+	 * @param int $maxVersion
+	 * @param bool $strict
 	 * @return int
 	 */
-	public function getRecentVersion()
+	public function getRecentVersion($minVersion = false, $maxVersion = false, $strict = false)
 	{
+		$this->getAvailableVersions();
+
+		if ($minVersion !== false || $maxVersion != false)
+		{
+			if ($minVersion === false)
+			{
+				$minVersion = $this->availableVersions[count($this->availableVersions)-1];
+			}
+			if ($maxVersion === false)
+			{
+				$maxVersion = $this->availableVersions[0];
+			}
+
+			$versions = array_filter($this->availableVersions, function($version) use ($minVersion, $maxVersion, $strict) {
+				// version is too old
+				if ($version < $minVersion) {
+					return false;
+				}
+				// version is too new
+				if ($version > $maxVersion) {
+					// if strict, filter out
+					if ($strict) {
+						return false;
+					} else {
+						// if the major change, filter out
+						$nextMajor = (($maxVersion / 10000000) + 1) * 10000000;
+						if ($version >= $nextMajor) {
+							return false;
+						}
+					}
+				}
+				return true;
+			});
+
+			return $this->findRecentVersion($versions);
+		}
+
+		if ($this->recentVersion == -1)
+		{
+			$installedVersion = $this->getInstalledVersion();
+
+			$newerVersions = array_filter($this->availableVersions, function($version) use ($installedVersion) {
+				return $version >= $installedVersion;
+			});
+
+			// find recent version, that is newer as or it is the installed version
+			$this->recentVersion = $this->findRecentVersion($newerVersions);
+
+			// no recent version found
+			if ($this->recentVersion == 0)
+			{
+				// fallback, search recent version in all available versions
+				$this->recentVersion = $this->findRecentVersion($this->availableVersions);
+			}
+		}
+
 		return $this->recentVersion;
 	}
 
 	/**
-	 * Set the latest version.
+	 * Find recent version.
 	 *
-	 * @param int $latestVersion
+	 * @param array $versions
+	 * @param int $status
 	 */
-	public function setLatestVersion($latestVersion)
+	protected function findRecentVersion($versions, $status = 9)
 	{
-		$this->latestVersion = $latestVersion;
+		$tmp = array_filter($versions, function($version) use ($status) {
+			return $version ^ $status == $status;
+		});
+
+		if (count($tmp)) {
+			return $tmp[0];
+		} else if ($status > 0) {
+			return $this->findRecentVersion($versions, $status-1);
+		} else {
+			return 0;
+		}
 	}
 
 	/**
@@ -137,17 +188,13 @@ class Extension
 	 */
 	public function getLatestVersion()
 	{
-		return $this->latestVersion;
-	}
+		if ($this->latestVersion == -1)
+		{
+			$this->getAvailableVersions();
+			$this->latestVersion = $this->availableVersions[0];
+		}
 
-	/**
-	 * Set available versions.
-	 *
-	 * @param array $availableVersions
-	 */
-	public function setAvailableVersions($availableVersions)
-	{
-		$this->availableVersions = $availableVersions;
+		return $this->latestVersion;
 	}
 
 	/**
@@ -157,6 +204,17 @@ class Extension
 	 */
 	public function getAvailableVersions()
 	{
+		if ($this->availableVersions == null)
+		{
+			$stmt = $this->client->getDatabase()
+				->prepare("SELECT DISTINCT version FROM open_er2_repository WHERE name=? ORDER BY version DESC");
+			$stmt->bindValue(1, $this->name);
+			$stmt->execute();
+
+			$this->availableVersions = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+			rsort($this->availableVersions);
+		}
+
 		return $this->availableVersions;
 	}
 
@@ -167,6 +225,8 @@ class Extension
 	 */
 	public function getInstalledVersion()
 	{
+		// TODO get installed version
+		throw new Exception('Not yet implemented');
 		return $this->installedVersion;
 	}
 
@@ -177,7 +237,7 @@ class Extension
 	 */
 	public function isInstalled()
 	{
-		return !empty($this->installedVersion);
+		return $this->getInstalledVersion() != 0;
 	}
 
 }

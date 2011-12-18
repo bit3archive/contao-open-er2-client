@@ -46,15 +46,29 @@ class Repository
 	}
 
 	/**
+	 * Get an extension.
+	 *
+	 * @param string $name
+	 * @return Extension
+	 */
+	public function getExtension($name)
+	{
+		return new Extension($this->client, $name);
+	}
+
+	/**
+	 *
+	 */
+
+	/**
 	 * Sync repository information.
 	 */
-	public function syncRepository()
+	public function syncRepository($force = false)
 	{
 		$this->client->getLogger()->addInfo('Synchronise repository information');
 
 		$objExtensionListArgs = new \stdClass();
 		$objExtensionListArgs->sets  = 'history,dependencies';
-		$objExtensionListArgs->limit = 1;
 		$arrExtensions = $this->client->getSoap()
 			->getExtensionList($objExtensionListArgs);
 
@@ -65,12 +79,9 @@ class Repository
 
 			foreach ($objExtension->allversions as $objVersion)
 			{
-				$this->syncExtension($strName, $objVersion->version);
+				$this->syncExtension($strName, $objVersion->version, $force);
 			}
 		}
-
-		var_dump($arrExtensions);
-
 	}
 
 	/**
@@ -82,37 +93,99 @@ class Repository
 	 */
 	public function syncExtension($name, $version, $force = false)
 	{
-		if (!$force)
+		$db = $this->client->getDatabase();
+
+		foreach ($this->client->getLanguages() as $language)
 		{
-			$stmt = $this->client->getDatabase()
-				->prepare('SELECT * FROM open_er2_repository WHERE name=? AND version=?');
-			$stmt->bindValue(1, $name);
-			$stmt->bindValue(2, $version);
-			$stmt->execute();
-			if ($stmt->rowCount)
+			if (!$force)
 			{
-				return;
+				$stmt = $this->client->getDatabase()
+					->prepare('SELECT * FROM open_er2_repository WHERE name=? AND version=? AND language=?');
+				$stmt->bindValue(1, $name);
+				$stmt->bindValue(2, $version);
+				$stmt->bindValue(3, $language);
+				$stmt->execute();
+				if ($stmt->rowCount())
+				{
+					continue;
+				}
 			}
-		}
 
-		$this->client->getLogger()->addInfo('Synchronise extension ' . $name . ', ' . $version . ' information');
+			$this->client->getLogger()->addInfo('Synchronise extension ' . $name . ', ' . $version . ', ' . $language . ' information');
 
-		$objExtensionListArgs           = new \stdClass();
-		$objExtensionListArgs->sets     = 'history,dependencies';
-		$objExtensionListArgs->names    = $name;
-		$objExtensionListArgs->versions = $version;
+			$objExtensionListArgs            = new \stdClass();
+			$objExtensionListArgs->sets      = 'history,dependencies,details';
+			$objExtensionListArgs->names     = $name;
+			$objExtensionListArgs->versions  = $version;
+			$objExtensionListArgs->languages = $language;
 
-		$arrExtensions = $this->client->getSoap()->getExtensionList($objExtensionListArgs);
-		if (count($arrExtensions)) {
-			$objExtension = $arrExtensions[0];
+			$arrExtensions = $this->client->getSoap()->getExtensionList($objExtensionListArgs);
+			if (count($arrExtensions)) {
+				$objExtension = $arrExtensions[0];
 
-			$stmt = $this->client->getDatabase()
-				->prepare("INSERT INTO open_er2_repository
-						   SET name=:name, version=:version, build=:build, releasedate=:releasedate,
-						       author=:author, authorName=:authorName, authorSite=:authorSite,
-						       type=:type, category=:category,
-						       coreMinVersion=:coreMinVersion, coreMaxVersion=:coreMaxVersion,
-						       license=:license, language=:language, title=:title, teaser=:teaser");
+				$arrParams = array
+				(
+					'name'           => $objExtension->name,
+					'version'        => $objExtension->version,
+					'build'          => $objExtension->build,
+					'releaseDate'    => $objExtension->releasedate,
+					'author'         => isset($objExtension->author) ? $objExtension->author : '',
+					'authorName'     => isset($objExtension->authorname) ? $objExtension->authorname : '',
+					'authorSite'     => isset($objExtension->authorsite) ? $objExtension->authorsite : '',
+					'type'           => $objExtension->type,
+					'category'       => $objExtension->category,
+					'coreMinVersion' => $objExtension->coreminversion,
+					'coreMaxVersion' => $objExtension->coremaxversion,
+					'language'       => $objExtension->language,
+					'title'          => isset($objExtension->title) ? $objExtension->title : '',
+					'teaser'         => isset($objExtension->teaser) ? $objExtension->teaser : '',
+					'description'    => isset($objExtension->description) ? $objExtension->description : '',
+					'releaseNotes'   => isset($objExtension->releasenotes) ? $objExtension->releasenotes : '',
+					'license'        => isset($objExtension->license) ? $objExtension->license : '',
+					'copyright'      => isset($objExtension->copyright) ? $objExtension->copyright : ''
+				);
+				$set = implode(',', array_map(function($strField) {
+					return $strField . ' = :' . $strField;
+				}, array_keys($arrParams)));
+
+				$stmt = $db->prepare("INSERT INTO open_er2_repository
+									  SET $set
+									  ON DUPLICATE KEY UPDATE $set");
+				$stmt->execute($arrParams);
+
+				if (isset($objExtension->dependencies))
+				{
+					// remove deleted dependencies
+					$deps = implode(',', array_map(function($dependency) use ($db) {
+						return $db->quote($dependency->extension);
+					}, $objExtension->dependencies));
+					$stmt = $db->prepare('DELETE FROM open_er2_repository_dependency WHERE extension=? AND dependsOn NOT IN (' . $deps . ')');
+					$stmt->bindValue(1, $name);
+					$stmt->execute();
+
+					// add or update dapendencies
+					foreach ($objExtension->dependencies as $dependency)
+					{
+						$arrParams = array
+						(
+							'extension'  => $name,
+							'dependsOn'  => $dependency->extension,
+							'minVersion' => $dependency->minversion,
+							'maxVersion' => $dependency->maxversion
+						);
+						$set = implode(',', array_map(function($strField) {
+							return $strField . ' = :' . $strField;
+						}, array_keys($arrParams)));
+
+						$stmt = $db->prepare("INSERT INTO open_er2_repository_dependency
+											  SET $set
+											  ON DUPLICATE KEY UPDATE $set");
+						$stmt->execute($arrParams);
+					}
+				}
+			} else {
+				$this->client->getLogger()->addWarning('Extension ' . $name . ', ' . $version . ', ' . $language . ' was not found in the repository!');
+			}
 		}
 	}
 }
