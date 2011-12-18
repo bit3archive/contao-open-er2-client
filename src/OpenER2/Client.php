@@ -31,6 +31,13 @@ namespace OpenER2;
 class Client
 {
 	/**
+	 * Static repository url.
+	 *
+	 * @var string
+	 */
+	protected $staticRepositoryUrl = 'http://contao.infinitysoft.de/open_er2/staticRepository.bin';
+
+	/**
 	 * The ER2 wsdl url.
 	 *
 	 * @var string
@@ -137,11 +144,19 @@ class Client
 	}
 
 	/**
-	 * @return \Monolog\Logger
+	 * @param string $staticRepositoryUrl
 	 */
-	public function getLogger()
+	public function setStaticRepositoryUrl($staticRepositoryUrl)
 	{
-		return $this->logger;
+		$this->staticRepositoryUrl = $staticRepositoryUrl;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getStaticRepositoryUrl()
+	{
+		return $this->staticRepositoryUrl;
 	}
 
 	/**
@@ -302,6 +317,14 @@ class Client
 	public function getLanguages()
 	{
 		return $this->languages;
+	}
+
+	/**
+	 * @return \Monolog\Logger
+	 */
+	public function getLogger()
+	{
+		return $this->logger;
 	}
 
 	/**

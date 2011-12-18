@@ -57,8 +57,72 @@ class Repository
 	}
 
 	/**
-	 *
+	 * Download and import static repository dump.
 	 */
+	public function importStaticRepository()
+	{
+		$url = $this->client->getStaticRepositoryUrl();
+		$list = unserialize(file_get_contents($url));
+
+		$this->client->getDatabase()
+			->exec('TRUNCATE open_er2_repository');
+		$this->client->getDatabase()
+			->exec('TRUNCATE open_er2_repository_dependency');
+
+		foreach ($list['extensions'] as $extension)
+		{
+			$arrParams = array
+			(
+				'name'           => $extension->name,
+				'version'        => $extension->version,
+				'build'          => $extension->build,
+				'releaseDate'    => $extension->releasedate,
+				'author'         => $extension->author,
+				'authorName'     => $extension->authorname,
+				'authorSite'     => $extension->authorsite,
+				'type'           => $extension->type,
+				'category'       => $extension->category,
+				'coreMinVersion' => $extension->coreminversion,
+				'coreMaxVersion' => $extension->coremaxversion,
+				'language'       => $extension->language,
+				'title'          => $extension->title,
+				'teaser'         => $extension->teaser,
+				'description'    => $extension->description,
+				'releaseNotes'   => $extension->releasenotes,
+				'license'        => $extension->license,
+				'copyright'      => $extension->copyright
+			);
+			$set = implode(',', array_map(function($strField) {
+				return $strField . ' = :' . $strField;
+			}, array_keys($arrParams)));
+
+			$stmt = $this->client->getDatabase()
+				->prepare("INSERT INTO open_er2_repository
+						   SET $set
+						   ON DUPLICATE KEY UPDATE $set");
+			$stmt->execute($arrParams);
+		}
+
+		foreach ($list['dependencies'] as $dependency)
+		{
+			$arrParams = array
+			(
+				'extension'  => $dependency->extension,
+				'dependsOn'  => $dependency->dependsOn,
+				'minVersion' => $dependency->minVersion,
+				'maxVersion' => $dependency->maxVersion
+			);
+			$set = implode(',', array_map(function($strField) {
+				return $strField . ' = :' . $strField;
+			}, array_keys($arrParams)));
+
+			$stmt = $this->client->getDatabase()
+				->prepare("INSERT INTO open_er2_repository_dependency
+						   SET $set
+						   ON DUPLICATE KEY UPDATE $set");
+			$stmt->execute($arrParams);
+		}
+	}
 
 	/**
 	 * Sync repository information.
