@@ -18,9 +18,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace OpenER2\Entity;
-
-use Doctrine\ORM\Mapping as ORM;
+namespace OpenER2;
 
 /**
  * Class Extension
@@ -29,31 +27,58 @@ use Doctrine\ORM\Mapping as ORM;
  *
  * @copyright InfinitySoft 2011 <http://www.infinitysoft.de>
  * @author    Tristan Lins <tristan.lins@infinitysoft.de>
- *
- * @ORM\Entity
- * @ORM\Table(name="opener2_extension")
  */
 class Extension
 {
 	/**
-	 * @ORM\Id
-	 * @ORM\Column(type="string", length=100)
+	 * The client instance.
+	 *
+	 * @var Client
+	 */
+	protected $client;
+
+	/**
+	 * Name of the extension.
+	 *
 	 * @var string
 	 */
 	protected $name = "";
 
 	/**
-	 * @ORM\Column(type="blob")
-	 * @var array
+	 * Recent version of the extension.
+	 *
+	 * @var int
 	 */
-	protected $availableVersions;
+	protected $recentVersion = 0;
 
 	/**
-	 * @ORM\Column(type="string", length=100)
-	 * @var string
+	 * Latest version of the extension.
+	 *
+	 * @var int
 	 */
-	protected $installedVersion = null;
+	protected $latestVersion = 0;
 
+	/**
+	 * Available versions of the extension.
+	 *
+	 * @var array
+	 */
+	protected $availableVersions = array();
+
+	/**
+	 * The installed version.
+	 *
+	 * @var int
+	 */
+	protected $installedVersion = 0;
+
+	/**
+	 * @param Client $client
+	 */
+	public function __construct(Client $client)
+	{
+		$this->client = $client;
+	}
 
 	/**
 	 * Set the extension name.
@@ -73,6 +98,46 @@ class Extension
 	public function getName()
 	{
 		return $this->name;
+	}
+
+	/**
+	 * Get recent version.
+	 *
+	 * @param int $recentVersion
+	 */
+	public function setRecentVersion($recentVersion)
+	{
+		$this->recentVersion = $recentVersion;
+	}
+
+	/**
+	 * Set recent version.
+	 *
+	 * @return int
+	 */
+	public function getRecentVersion()
+	{
+		return $this->recentVersion;
+	}
+
+	/**
+	 * Set the latest version.
+	 *
+	 * @param int $latestVersion
+	 */
+	public function setLatestVersion($latestVersion)
+	{
+		$this->latestVersion = $latestVersion;
+	}
+
+	/**
+	 * Get the latest version.
+	 * 
+	 * @return int
+	 */
+	public function getLatestVersion()
+	{
+		return $this->latestVersion;
 	}
 
 	/**

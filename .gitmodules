@@ -1,0 +1,3 @@
+[submodule "deps/monolog"]
+	path = deps/monolog
+	url = https://github.com/Seldaek/monolog.git

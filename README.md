@@ -4,4 +4,6 @@ This is an open contao extension repository 2 client api, that can be used to ma
 
 ## Requirements
 
-This API requires PHP 5.3 (namespaces) and doctrine2.
+- PHP 5.3 (namespaces)
+- Monolog (https://github.com/Seldaek/monolog)
+
