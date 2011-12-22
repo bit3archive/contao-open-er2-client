@@ -9,7 +9,7 @@
  * @filesource
  */
 
-namespace Contao\HttpRequestExtended;
+namespace Contao\OpenER2\HttpRequestExtended;
 
 if(!defined('CRLF'))
 	define('CRLF', "\r\n");

@@ -62,7 +62,7 @@ class Repository
 	public function importStaticRepository()
 	{
 		$url = $this->client->getStaticRepositoryUrl();
-		$request = new \Contao\HttpRequestExtended\RequestExtended();
+		$request = new \Contao\OpenER2\HttpRequestExtended\RequestExtended();
 		if (!$request->getUrlEncoded($url)) {
 			throw new \Exception('Could not fetch static repository data.');
 		}

@@ -50,7 +50,6 @@ CREATE TABLE `open_er2_installed_extensions` (
   `installed` timestamp NULL default NULL,
   `updated` timestamp NULL default NULL,
   `allowedStatus` int(1) NOT NULL default '9',
-  `licenseKey` varchar(255) NOT NULL default '',
   `doNotDelete` char(1) NOT NULL default '',
   `doNotUpdate` char(1) NOT NULL default '',
   `hasErrors` char(1) NOT NULL default '',
@@ -68,4 +67,14 @@ CREATE TABLE `open_er2_installed_files` (
   `file` varchar(256) NOT NULL default '',
   `checksum` char(32) NOT NULL default '',
   PRIMARY KEY  (`extension`, `file`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+--
+-- Table `open_er2_license`
+--
+
+CREATE TABLE `open_er2_license` (
+  `extension` varchar(32) NOT NULL default '',
+  `license` varchar(256) NOT NULL default '',
+  PRIMARY KEY  (`extension`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;

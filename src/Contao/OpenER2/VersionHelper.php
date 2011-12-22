@@ -27,8 +27,46 @@ namespace Contao\OpenER2;
  */
 class VersionHelper
 {
-	public static function calculateRecentMaxVersion($version)
+	public static $mStatusName = array(
+		'alpha1', 'alpha2', 'alpha3',
+		'beta1', 'beta2', 'beta3',
+		'rc1', 'rc2', 'rc3',
+		'stable'
+	);
+
+	public static function calculateRecentMajorVersion($version)
 	{
 		return intval($version/10000000)*10000000+9999999;
+	}
+
+	public static function calculateRecentMinorVersion($version)
+	{
+		return intval($version/10000)*10000+9999;
+	}
+
+	public static function formatVersion($aVersion, $build = false)
+	{
+		$aVersion       = (int)$aVersion;
+		if (!$aVersion) return '';
+		$status         = $aVersion % 10;
+		$aVersion       = (int)($aVersion / 10);
+		$micro          = $aVersion % 1000;
+		$aVersion       = (int)($aVersion / 1000);
+		$minor          = $aVersion % 1000;
+		$major          = (int)($aVersion / 1000);
+		return "$major.$minor.$micro." . self::$mStatusName[$status] . ($build!==false ? '.' . $build : '');
+	}
+
+	public static function parseVersion($version)
+	{
+		if (preg_match('#^(?<major>\d+)\.(?<minor>\d+)\.(?<build>\d+)(?:(?:\.|\s+)(?<release>\w+))?$#', $version, $match))
+		{
+			return ($match['major'] * 10000000) + ($match['minor'] * 10000) + ($match['build'] * 10) + (isset($match['release']) ? array_search($match['release'], self::$mStatusName) : 9);
+		}
+		if (preg_match('#^(?<major>\d+)\.(?<minor>\d+)\.(?<release>[^\d]\w+)$#', $version, $match))
+		{
+			return ($match['major'] * 10000000) + ($match['minor'] * 10000) + array_search($match['release'], self::$mStatusName);
+		}
+		return -1;
 	}
 }

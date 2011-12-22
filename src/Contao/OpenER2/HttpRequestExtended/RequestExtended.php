@@ -9,7 +9,7 @@
  * @filesource
  */
 
-namespace Contao\HttpRequestExtended;
+namespace Contao\OpenER2\HttpRequestExtended;
 
 /**
  * Class Request11

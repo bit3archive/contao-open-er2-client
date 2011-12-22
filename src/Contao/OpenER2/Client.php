@@ -150,6 +150,13 @@ class Client
 	protected $repository = null;
 
 	/**
+	 * The license registry.
+	 *
+	 * @var LicenseRegistry
+	 */
+	protected $licenseRegistry;
+
+	/**
 	 *
 	 */
 	public function __construct()
@@ -343,15 +350,8 @@ class Client
 			return true;
 		}
 
-		$mStatusName = array(
-			'alpha1', 'alpha2', 'alpha3',
-			'beta1', 'beta2', 'beta3',
-			'rc1', 'rc2', 'rc3',
-			'stable'
-		);
-		if (preg_match('#^(?<major>\d+)\.(?<minor>\d+)\.(?<build>\d+)\.(?<release>\w+)$#', strtolower($version), $match))
-		{
-			$this->contaoVersion = ($match['major'] * 10000000) + ($match['minor'] * 10000) + ($match['build'] * 10) + array_search($match['release'], $mStatusName);
+		$this->contaoVersion = VersionHelper::parseVersion($version);
+		if ($this->contaoVersion > 0) {
 			return true;
 		}
 
@@ -479,5 +479,20 @@ class Client
 		}
 
 		return $this->repository;
+	}
+
+	/**
+	 * Get the license registry.
+	 *
+	 * @return LicenseRegistry
+	 */
+	public function getLicenseRegistry()
+	{
+		if ($this->licenseRegistry == null)
+		{
+			$this->licenseRegistry = new LicenseRegistry($this);
+		}
+
+		return $this->licenseRegistry;
 	}
 }

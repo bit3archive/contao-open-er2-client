@@ -54,9 +54,9 @@ class Extension
 	/**
 	 * Latest version of the extension.
 	 *
-	 * @var int
+	 * @var array
 	 */
-	protected $latestVersion = -1;
+	protected $latestVersion = array();
 
 	/**
 	 * Available versions of the extension.
@@ -66,11 +66,25 @@ class Extension
 	protected $availableVersions = null;
 
 	/**
+	 * Compatible versions of the extension.
+	 *
+	 * @var array
+	 */
+	protected $compatibleVersions = array(true=>null, false=>null);
+
+	/**
 	 * The installed version.
 	 *
 	 * @var int
 	 */
 	protected $installedVersion = -1;
+
+	/**
+	 * The installed build.
+	 *
+	 * @var int
+	 */
+	protected $installedBuild = -1;
 
 	/**
 	 * The dependency graph.
@@ -99,29 +113,30 @@ class Extension
 	}
 
 	/**
-	 * Set recent version.
+	 * Get latest recent (stable) version.
 	 *
 	 * @param int $minVersion
 	 * @param int $maxVersion
 	 * @param bool $strict
+	 * @param bool $upstream
 	 * @return int
 	 */
-	public function getRecentVersion($minVersion = false, $maxVersion = false, $strict = false)
+	public function getRecentVersion($minVersion = false, $maxVersion = false, $strict = false, $upstream = false)
 	{
-		$this->getAvailableVersions();
+		$versions = $upstream ? $this->getAvailableVersions() : $this->getCompatibleVersions($strict);
 
-		if ($minVersion !== false || $maxVersion != false)
+		if ($minVersion !== false || $maxVersion !== false || $strict !== false || $upstream !== false)
 		{
 			if ($minVersion === false)
 			{
-				$minVersion = $this->availableVersions[count($this->availableVersions)-1];
+				$minVersion = count($versions) ? $versions[count($versions)-1] : PHP_INT_SIZE;
 			}
 			if ($maxVersion === false)
 			{
-				$maxVersion = $this->availableVersions[0];
+				$maxVersion = count($versions) ? $versions[0] : 0;
 			}
 
-			$versions = array_filter($this->availableVersions, function($version) use ($minVersion, $maxVersion, $strict) {
+			$versions = array_filter($versions, function($version) use ($minVersion, $maxVersion, $strict) {
 				// version is too old
 				if ($version < $minVersion) {
 					return false;
@@ -133,7 +148,7 @@ class Extension
 						return false;
 					} else {
 						// if the major change, filter out
-						$maxVersion = VersionHelper::calculateRecentMaxVersion($maxVersion);
+						$maxVersion = VersionHelper::calculateRecentMajorVersion($maxVersion);
 						if ($version > $maxVersion) {
 							return false;
 						}
@@ -149,7 +164,7 @@ class Extension
 		{
 			$installedVersion = $this->getInstalledVersion();
 
-			$newerVersions = array_filter($this->availableVersions, function($version) use ($installedVersion) {
+			$newerVersions = array_filter($versions, function($version) use ($installedVersion) {
 				return $version >= $installedVersion;
 			});
 
@@ -160,7 +175,7 @@ class Extension
 			if ($this->recentVersion == 0)
 			{
 				// fallback, search recent version in all available versions
-				$this->recentVersion = $this->findRecentVersion($this->availableVersions);
+				$this->recentVersion = $this->findRecentVersion($versions);
 			}
 		}
 
@@ -190,22 +205,26 @@ class Extension
 
 	/**
 	 * Get the latest version.
-	 * 
+	 *
+	 * @param bool $strict
+	 * @param bool $upstream
 	 * @return int
 	 */
-	public function getLatestVersion()
+	public function getLatestVersion($strict = false, $upstream = false)
 	{
-		if ($this->latestVersion == -1)
+		$k = ($strict ? 1 : 0) + ($upstream ? 2 : 0);
+
+		if (!isset($this->latestVersion[$k]))
 		{
-			$this->getAvailableVersions();
-			$this->latestVersion = $this->availableVersions[0];
+			$versions = $upstream ? $this->getAvailableVersions() : $this->getCompatibleVersions($strict);
+			$this->latestVersion[$k] = count($versions) ? $versions[0] : 0;
 		}
 
-		return $this->latestVersion;
+		return $this->latestVersion[$k];
 	}
 
 	/**
-	 * Get available versions.
+	 * Get all available versions.
 	 *
 	 * @return mixed
 	 */
@@ -226,27 +245,123 @@ class Extension
 	}
 
 	/**
-	 * Get the installed version string.
+	 * Get all versions that are compatible to the current contao version.
 	 *
-	 * @return null|string
+	 * @param bool $strict
+	 * @return mixed
+	 */
+	public function getCompatibleVersions($strict = false)
+	{
+		if ($this->compatibleVersions[$strict] == null)
+		{
+			$stmt = $this->client->getDatabase()
+				->prepare("SELECT DISTINCT version
+						   FROM open_er2_repository
+						   WHERE name=:name
+						   AND coreMinVersion<=:contaoVersion
+						   AND " . ($strict ? "coreMaxVersion" : "FLOOR(coreMaxVersion/10000)*10000+9999") . ">=:contaoVersion
+						   ORDER BY version DESC");
+			$stmt->bindValue('name', $this->name);
+			$stmt->bindValue('contaoVersion', $this->client->getContaoVersion());
+			$stmt->execute();
+
+			$this->compatibleVersions[$strict] = $stmt->fetchAll(\PDO::FETCH_COLUMN);
+			rsort($this->compatibleVersions[$strict]);
+		}
+
+		return $this->compatibleVersions[$strict];
+	}
+
+	/**
+	 * Get the installed version number.
+	 *
+	 * @return int
 	 */
 	public function getInstalledVersion()
 	{
 		if ($this->installedVersion == -1)
 		{
 			$stmt = $this->client->getDatabase()
-				->prepare("SELECT version FROM open_er2_installed_extensions WHERE extension=?");
+				->prepare("SELECT version, build FROM open_er2_installed_extensions WHERE extension=?");
 			$stmt->bindValue(1, $this->name);
 			$stmt->execute();
 
+			// if installed, set the version and build number.
 			if ($stmt->rowCount()) {
-				$this->installedVersion = (int)$stmt->fetchColumn(1);
-			} else {
+				$objExtension = $stmt->fetch(\PDO::FETCH_OBJ);
+
+				$this->installedVersion = (int)$objExtension->version;
+				$this->installedBuild   = (int)$objExtension->build;
+			}
+
+			// (compat mode) if not installed, check in contao er2 table
+			else if ($this->client->isContaoER2Compat()) {
+				$stmt = $this->client->getDatabase()
+					->prepare("SELECT * FROM tl_repository_installs WHERE extension=?");
+				$stmt->bindValue(1, $this->name);
+				$stmt->execute();
+
+				// extension is installed by contao er2 client
+				if ($stmt->rowCount()) {
+					$objExtension = $stmt->fetch(\PDO::FETCH_OBJ);
+
+					// register extension in open er2 table
+					$stmt = $this->client->getDatabase()
+						->prepare("INSERT INTO open_er2_installed_extensions
+								   SET extension=:extension, version=:version, build=:build,
+								   isDependency=:isDependency, installed=:installed, updated=:updated,
+								   allowedStatus=:allowedStatus,
+								   doNotDelete=:doNotDelete, doNotUpdate=:doNotUpdate,
+								   hasErrors=:hasErrors");
+					$stmt->bindValue('extension', $this->name);
+					$stmt->bindValue('version', $objExtension->version);
+					$stmt->bindValue('build', $objExtension->build);
+					$stmt->bindValue('isDependency', '');
+					$stmt->bindValue('installed', date('Y-m-d H:i:s', $objExtension->tstamp));
+					$stmt->bindValue('updated', date('Y-m-d H:i:s', $objExtension->tstamp));
+					$stmt->bindValue('allowedStatus', $objExtension->alpha ? 0 : ($objExtension->beta ? 3 : ($objExtension->rc ? 6 : 9)));
+					$stmt->bindValue('doNotDelete', $objExtension->delprot);
+					$stmt->bindValue('doNotUpdate', $objExtension->updprot);
+					$stmt->bindValue('hasErrors', $objExtension->error);
+					$stmt->execute();
+
+					// if exists, set the license key
+					if ($objExtension->lickey) {
+						$this->client->getLicenseRegistry()->setLicense($this->name, $objExtension->lickey);
+					}
+
+					$this->installedVersion = (int)$objExtension->version;
+					$this->installedBuild   = (int)$objExtension->build;
+				}
+
+				// extension is not installed
+				else {
+					$this->installedVersion = 0;
+					$this->installedBuild   = 0;
+				}
+			}
+
+			// extension is not installed
+			else {
 				$this->installedVersion = 0;
+				$this->installedBuild   = 0;
 			}
 		}
 
 		return $this->installedVersion;
+	}
+
+	/**
+	 * Get the installed build number.
+	 */
+	public function getInstalledBuild()
+	{
+		if ($this->installedBuild == -1)
+		{
+			$this->getInstalledVersion();
+		}
+
+		return $this->installedBuild;
 	}
 
 	/**
@@ -286,39 +401,6 @@ class Extension
 	}
 
 	/**
-	 * Get the dependency list.
-	 *
-	 * @param int $version
-	 * @param bool $strict
-	 * @return array
-	 */
-	public function getDependencyList($version = false, $strict = false)
-	{
-		$graph = $this->getDependencyGraph($version, $strict);
-		$list  = array();
-		$this->buildDependencyList($graph, $list);
-		return $list;
-	}
-
-	/**
-	 * Build the dependency list.
-	 *
-	 * @param array $graph
-	 * @param array $list
-	 */
-	protected  function buildDependencyList($graph, &$list)
-	{
-		foreach ($graph as $k=>$v)
-		{
-			if (!isset($list[$k]))
-			{
-				$list[$k] = $v;
-				$this->buildDependencyList($v->dependencies, $list);
-			}
-		}
-	}
-
-	/**
 	 * Calculate the dependency graph.
 	 *
 	 * @param array dependencies
@@ -340,7 +422,7 @@ class Extension
 		foreach ($list as $dependency)
 		{
 			if (!$strict) {
-				$dependency->maxVersion = VersionHelper::calculateRecentMaxVersion($dependency->maxVersion);
+				$dependency->maxVersion = VersionHelper::calculateRecentMajorVersion($dependency->maxVersion);
 			}
 
 			if (isset($dependencies[$dependency->dependsOn]))
@@ -348,7 +430,7 @@ class Extension
 				if (   $dependencies[$dependency->dependsOn]->min > $dependency->maxVersion
 					&& $dependencies[$dependency->dependsOn]->max < $dependency->minVersion)
 				{
-					$exception = new \UnresolveableDependencyException($dependency, $dependencies[$dependency->dependsOn]);
+					$exception = new Exception\UnresolveableDependencyException($dependency, $dependencies[$dependency->dependsOn]);
 
 					// log the unresolvable exception
 					$this->client->getLogger()
@@ -397,7 +479,7 @@ class Extension
 		foreach ($stmt as $dependency)
 		{
 			if (!$strict) {
-				$dependency->maxVersion = VersionHelper::calculateRecentMaxVersion($dependency->maxVersion);
+				$dependency->maxVersion = VersionHelper::calculateRecentMajorVersion($dependency->maxVersion);
 			}
 
 			if (isset($dependencies[$dependency->dependsOn]))
@@ -405,7 +487,7 @@ class Extension
 				if (   $dependencies[$dependency->dependsOn]->min > $dependency->maxVersion
 					&& $dependencies[$dependency->dependsOn]->max < $dependency->minVersion)
 				{
-					$exception = new \UnresolveableDependencyException($dependency, $dependencies[$dependency->dependsOn]);
+					$exception = new Exception\UnresolveableDependencyException($dependency, $dependencies[$dependency->dependsOn]);
 
 					// log the unresolvable exception
 					$this->client->getLogger()
@@ -446,33 +528,68 @@ class Extension
 	}
 
 	/**
-	 * Install the extension.
+	 * Get the dependency list.
 	 *
-	 * @return bool
+	 * @param int $version
+	 * @param bool $strict
+	 * @return array
 	 */
-	public function install($version = false, $licenseKey = false, $isDependency = false)
+	public function getDependencyList($version = false, $strict = false)
 	{
-		if ($this->isInstalled()) {
-			return false;
-		}
+		$graph = $this->getDependencyGraph($version, $strict);
+		$list  = array();
+		$this->buildDependencyList($graph, $list);
+		return $list;
+	}
 
-		return $this->installOrUpdate($version, $licenseKey, $isDependency);
+	/**
+	 * Build the dependency list.
+	 *
+	 * @param array $graph
+	 * @param array $list
+	 */
+	protected  function buildDependencyList($graph, &$list)
+	{
+		foreach ($graph as $k=>$v)
+		{
+			if (!isset($list[$k]))
+			{
+				$list[$k] = $v;
+				$this->buildDependencyList($v->dependencies, $list);
+			}
+		}
 	}
 
 	/**
 	 * Install the extension.
 	 *
 	 * @return bool
+	 * @throws Exception\ExtensionAllreadyInstalledException
 	 */
-	public function installWithDependencies($version = false, $licenseKey = false)
+	public function install($version = false, $isDependency = false, $strict = false)
 	{
 		if ($this->isInstalled()) {
-			return false;
+			throw new Exception\ExtensionAllreadyInstalledException($this->name);
 		}
 
-		if ($this->install($version, $licenseKey, false))
+		return $this->installOrUpdate($version, $isDependency, $strict);
+	}
+
+	/**
+	 * Install the extension.
+	 *
+	 * @return bool
+	 * @throws Exception\ExtensionAllreadyInstalledException
+	 */
+	public function installWithDependencies($version = false, $strict = false)
+	{
+		if ($this->isInstalled()) {
+			throw new Exception\ExtensionAllreadyInstalledException($this->name);
+		}
+
+		if ($this->install($version, false, $strict))
 		{
-			$dependencies = $this->getDependencyGraph($version);
+			$dependencies = $this->getDependencyList($version);
 			foreach ($dependencies as $k=>$v)
 			{
 				$extension = $this->client->getRepository()
@@ -490,20 +607,21 @@ class Extension
 	 * Update the extension.
 	 *
 	 * @return bool
+	 * @throws Exception\ExtensionNotInstalledException
 	 */
-	public function update($version = false, $licenseKey = false)
+	public function update($version = false, $strict = false)
 	{
 		if (!$this->isInstalled()) {
-			return false;
+			throw new Exception\ExtensionNotInstalledException($this->name);
 		}
 
-		return $this->installOrUpdate($version, $licenseKey);
+		return $this->installOrUpdate($version, false, $strict);
 	}
 
-	public function installOrUpdate($version = false, $licenseKey = false, $isDependency = false)
+	public function installOrUpdate($version = false, $isDependency = false, $strict = false)
 	{
 		if ($version == false) {
-			$version = $this->getRecentVersion();
+			$version = $this->getRecentVersion(false, false, $strict);
 		}
 
 		$extension = $this->client->getRepository()
@@ -511,6 +629,8 @@ class Extension
 
 		$this->client->getLogger()
 			->addInfo('Install extension ' . $this->name . ', ' . $version . ', ' . $extension->build);
+
+		$licenseKey = $this->client->getLicenseRegistry()->getLicense($this->name);
 
 		// insert into database
 		// mark as has errors, if fetching package fails
@@ -521,7 +641,6 @@ class Extension
 			'build'          => $extension->build,
 			'updated'        => time(),
 			'allowedStatus'  => 9,
-			'licenseKey'     => $licenseKey,
 			'hasErrors'      => '1'
 		);
 		$setUpdate = implode(',', array_map(function($strField) {
@@ -559,7 +678,7 @@ class Extension
 				'beta'           => '',
 				'rc'             => '',
 				'stable'         => '',
-				'lickey'         => $licenseKey,
+				'lickey'         => $licenseKey ? $licenseKey : '',
 				'error'          => '1'
 			);
 			$set = implode(',', array_map(function($strField) {
@@ -592,7 +711,7 @@ class Extension
 		$response = $this->client->getSoap()
 			->getPackage($request);
 
-		$request = new \Contao\HttpRequestExtended\RequestExtended();
+		$request = new \Contao\OpenER2\HttpRequestExtended\RequestExtended();
 		if (!$request->getUrlEncoded($response->url)) {
 			$this->client->getLogger()
 				->addError('Could not fetch package for ' . $this->name . ', ' . $version . ', ' . $extension->build . ' from ' . $response->url);

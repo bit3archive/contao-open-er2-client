@@ -17,37 +17,55 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+namespace Contao\OpenER2\Exception;
+
 /**
- * Class UnresolveableDependencyException
+ * Class ExtensionAllreadyInstalledException
  *
  * @copyright InfinitySoft 2011 <http://www.infinitysoft.de>
  * @author    Tristan Lins <tristan.lins@infinitysoft.de>
  */
-class UnresolveableDependencyException extends Exception
+class FetchPackageException extends \Exception
 {
 	/**
-	 * The unresolved dependency.
-	 *
-	 * @var stdObject
+	 * @var string
 	 */
-	protected $unresolvedDependency;
+	protected $extension;
 
 	/**
-	 * The current dependency.
-	 *
-	 * @var stdObject
+	 * @var int
 	 */
-	protected $currentDependency;
+	protected $version;
 
 	/**
-	 * @param stdObject $dependency
-	 * @param stdObject $current
+	 * @var build
 	 */
-	public function __construct($unresolvedDependency, $currentDependency)
+	protected $build;
+
+	/**
+	 * @var string
+	 */
+	protected $url;
+
+	/**
+	 * @param string $extension
+	 */
+	public function __construct($extension, $version, $build, $url)
 	{
-		$message = 'Could not resolve dependency graph. '
-				 . 'Searching for ' . $unresolvedDependency->dependsOn . ' from ' . $unresolvedDependency->minVersion . ' to ' . $unresolvedDependency->maxVersion . ', '
-				 . 'but require ' . $unresolvedDependency->dependsOn . ' from ' . $currentDependency->min . ' to ' . $currentDependency->max . ' via ' . implode(', ', $currentDependency->via);
-		parent::__construct($message);
+		parent::__construct(sprintf('The package for extension "%s" %s.%s could not be fetched from "%s"!', $extension, $url));
+		$this->extension = $extension;
+		$this->version = $version;
+		$this->build = $build;
+		$this->url = $url;
+	}
+
+	/**
+	 * Get the extension name.
+	 *
+	 * @return string
+	 */
+	public function getExtension()
+	{
+		return $this->extension;
 	}
 }
