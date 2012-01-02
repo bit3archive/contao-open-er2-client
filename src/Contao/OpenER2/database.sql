@@ -78,3 +78,14 @@ CREATE TABLE `open_er2_license` (
   `license` varchar(256) NOT NULL default '',
   PRIMARY KEY  (`extension`)
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8;
+
+--
+-- Table `open_er2_blacklist`
+--
+
+CREATE TABLE `open_er2_blacklist` (
+  `extension` varchar(32) NOT NULL default '',
+  `version` int(10) NOT NULL default '0',
+  `build` int(10) NOT NULL default '0',
+  PRIMARY KEY  (`extension`, `version`, `build`)
+) ENGINE=MyISAM DEFAULT CHARSET=utf8;
