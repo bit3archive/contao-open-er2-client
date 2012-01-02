@@ -99,9 +99,17 @@ class Extension
 	 */
 	public function __construct(Client $client, $name)
 	{
+		$stmt = $client->getDatabase()->prepare('SELECT * FROM open_er2_repository WHERE name=?');
+		$stmt->bindValue(1, $name);
+		$stmt->execute();
+		if ($stmt->rowCount() == 0) {
+			throw new \Contao\OpenER2\Exception\UnknownExtensionException($name);
+		}
+
 		$this->client = $client;
 		$this->name   = $name;
 	}
+
 	/**
 	 * Get the extension name.
 	 *
