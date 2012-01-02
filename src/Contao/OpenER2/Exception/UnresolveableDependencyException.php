@@ -37,19 +37,38 @@ class UnresolveableDependencyException extends Exception
 	/**
 	 * The current dependency.
 	 *
-	 * @var stdObject
+	 * @var \Contao\OpenER2\Dependency\Dependency
 	 */
 	protected $currentDependency;
 
 	/**
 	 * @param stdObject $dependency
-	 * @param stdObject $current
+	 * @param \Contao\OpenER2\Dependency\Dependency $current
 	 */
-	public function __construct($unresolvedDependency, $currentDependency)
+	public function __construct(\stdClass $unresolvedDependency, \Contao\OpenER2\Dependency\Dependency $currentDependency)
 	{
-		$message = 'Could not resolve dependency graph. '
-				 . 'Searching for ' . $unresolvedDependency->dependsOn . ' from ' . $unresolvedDependency->minVersion . ' to ' . $unresolvedDependency->maxVersion . ', '
-				 . 'but require ' . $unresolvedDependency->dependsOn . ' from ' . $currentDependency->min . ' to ' . $currentDependency->max . ' via ' . implode(', ', $currentDependency->via);
-		parent::__construct($message);
+		parent::__construct('Could not resolve dependency graph. '
+			. 'Searching for ' . $unresolvedDependency->dependsOn . ' from ' . $unresolvedDependency->minVersion . ' to ' . $unresolvedDependency->maxVersion . ', '
+			. 'but require ' . $unresolvedDependency->dependsOn . ' from ' . $currentDependency->getMinVersion() . ' to ' . $currentDependency->getMaxVersion() . ' via ' . implode(', ', array_filter($currentDependency->getParents(), function (\Contao\OpenER2\Dependency\Dependency $dependency) {
+			return $dependency->getExtension()->getName();
+		})));
+		$this->unresolvedDependency = $unresolvedDependency;
+		$this->currentDependency = $currentDependency;
+	}
+
+	/**
+	 * @return \Contao\OpenER2\Exception\stdObject
+	 */
+	public function getUnresolvedDependency()
+	{
+		return $this->unresolvedDependency;
+	}
+
+	/**
+	 * @return \Contao\OpenER2\Dependency\Dependency
+	 */
+	public function getCurrentDependency()
+	{
+		return $this->currentDependency;
 	}
 }

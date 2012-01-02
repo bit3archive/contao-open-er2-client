@@ -387,7 +387,7 @@ class Extension
 	 *
 	 * @param int $version
 	 * @param bool $strict
-	 * @return array
+	 * @return \Contao\OpenER2\Dependency\DependencyGraph
 	 */
 	public function getDependencyGraph($version = false, $strict = false)
 	{
@@ -402,7 +402,8 @@ class Extension
 		if (!isset($this->dependencyGraph[$version]))
 		{
 			$tmp = array();
-			$this->dependencyGraph[$version] = $this->calculateDependencyGraph($version, $strict, $tmp);
+			$this->dependencyGraph[$version] = new \Contao\OpenER2\Dependency\DependencyGraph($this, $version, $version);
+			$this->calculateDependencyGraph($this->dependencyGraph[$version], $this->dependencyGraph[$version], $version, $strict, $tmp);
 		}
 
 		return $this->dependencyGraph[$version];
@@ -412,9 +413,12 @@ class Extension
 	 * Calculate the dependency graph.
 	 *
 	 * @param array dependencies
-	 * @return array
+	 * @return \Contao\OpenER2\Dependency\DependencyGraph
 	 */
-	protected function calculateDependencyGraph($version, $strict, &$dependencies)
+	protected function calculateDependencyGraph(\Contao\OpenER2\Dependency\DependencyGraph $graph,
+	                                            \Contao\OpenER2\Dependency\Dependency $thisDependency,
+	                                            $version,
+	                                            $strict)
 	{
 		$stmt = $this->client->getDatabase()
 			->prepare("SELECT * FROM open_er2_repository_dependency WHERE extension=? AND version=?");
@@ -424,8 +428,6 @@ class Extension
 		$stmt->execute();
 		$list = $stmt->fetchAll();
 
-		$thisDependencies = array();
-
 		// calculate this extension dependencies
 		foreach ($list as $dependency)
 		{
@@ -433,12 +435,15 @@ class Extension
 				$dependency->maxVersion = VersionHelper::calculateRecentMajorVersion($dependency->maxVersion);
 			}
 
-			if (isset($dependencies[$dependency->dependsOn]))
+			$dependsOn = $this->client->getRepository()->getExtension($dependency->dependsOn);
+			$dep = $graph->dependsOn($dependsOn);
+
+			if ($dep)
 			{
-				if (   $dependencies[$dependency->dependsOn]->min > $dependency->maxVersion
-					&& $dependencies[$dependency->dependsOn]->max < $dependency->minVersion)
+				if (   $dep->getMinVersion() > $dependency->maxVersion
+					&& $dep->getMaxVersion() < $dependency->minVersion)
 				{
-					$exception = new Exception\UnresolveableDependencyException($dependency, $dependencies[$dependency->dependsOn]);
+					$exception = new Exception\UnresolveableDependencyException($dependency, $dep);
 
 					// log the unresolvable exception
 					$this->client->getLogger()
@@ -448,34 +453,32 @@ class Extension
 				}
 				else
 				{
-					// add this extension as dependency owner
-					$dependencies[$dependency->dependsOn]->via[] = $this->name;
 					// recalculate the min version
-					$dependencies[$dependency->dependsOn]->min = max(
-						$dependencies[$dependency->dependsOn]->min,
-						$dependency->minVersion);
+					$dep->setMinVersion(max(
+						$dep->getMinVersion(),
+						$dependency->minVersion
+					));
 					// recalculate the max version
-					$dependencies[$dependency->dependsOn]->max = min(
-						$dependencies[$dependency->dependsOn]->max,
-						$dependency->maxVersion);
+					$dep->setMaxVersion(min(
+						$dep->getMaxVersion(),
+						$dependency->maxVersion
+					));
 				}
 			}
 			else
 			{
-				$dependencies[$dependency->dependsOn]               = new \stdClass();
-				$dependencies[$dependency->dependsOn]->name         = $dependency->dependsOn;
-				$dependencies[$dependency->dependsOn]->via          = array($this->name);
-				$dependencies[$dependency->dependsOn]->min          = $dependency->minVersion;
-				$dependencies[$dependency->dependsOn]->max          = $dependency->maxVersion;
-				$dependencies[$dependency->dependsOn]->dependencies = array();
+				$dep = new \Contao\OpenER2\Dependency\Dependency($dependsOn, $dependency->minVersion, $dependency->maxVersion);
 			}
 
-			if (isset($dependencies[$this->name]))
-			{
-				$dependencies[$this->name]->dependencies[$dependency->dependsOn] = &$dependencies[$dependency->dependsOn];
-			}
+			$thisDependency->addDependency($dep);
 
-			$thisDependencies[$dependency->dependsOn] = &$dependencies[$dependency->dependsOn];
+			// append dependencies from dependencies
+			$dependsOn->calculateDependencyGraph(
+				$graph,
+				$dep,
+				$dependsOn->getInstalledVersion() ? $dependsOn->getInstalledVersion() : $dependsOn->getRecentVersion(),
+				$strict
+			);
 		}
 
 		// search for installed extensions and there dependencies
@@ -490,12 +493,15 @@ class Extension
 				$dependency->maxVersion = VersionHelper::calculateRecentMajorVersion($dependency->maxVersion);
 			}
 
-			if (isset($dependencies[$dependency->dependsOn]))
+			$dependsOn = $this->client->getRepository()->getExtension($dependency->dependsOn);
+			$dep = $graph->dependsOn($dependsOn);
+
+			if ($dep)
 			{
-				if (   $dependencies[$dependency->dependsOn]->min > $dependency->maxVersion
-					&& $dependencies[$dependency->dependsOn]->max < $dependency->minVersion)
+				if (   $dep->getMinVersion() > $dependency->maxVersion
+					&& $dep->getMaxVersion() < $dependency->minVersion)
 				{
-					$exception = new Exception\UnresolveableDependencyException($dependency, $dependencies[$dependency->dependsOn]);
+					$exception = new Exception\UnresolveableDependencyException($dependency, $dep);
 
 					// log the unresolvable exception
 					$this->client->getLogger()
@@ -505,65 +511,17 @@ class Extension
 				}
 				else
 				{
-					// add this extension as dependency owner
-					$dependencies[$dependency->dependsOn]->via[] = $this->name;
 					// recalculate the min version
-					$dependencies[$dependency->dependsOn]->min = max(
-						$dependencies[$dependency->dependsOn]->min,
-						$dependency->minVersion);
+					$dep->setMinVersion(max(
+						$dep->getMinVersion(),
+						$dependency->minVersion
+					));
 					// recalculate the max version
-					$dependencies[$dependency->dependsOn]->max = min(
-						$dependencies[$dependency->dependsOn]->max,
-						$dependency->maxVersion);
+					$dep->setMaxVersion(min(
+						$dep->getMaxVersion(),
+						$dependency->maxVersion
+					));
 				}
-			}
-		}
-
-		// append dependencies from dependencies
-		foreach ($list as $dependency)
-		{
-			$extension = $this->client->getRepository()
-				->getExtension($dependency->dependsOn);
-
-			$extension->calculateDependencyGraph(
-				$extension->getInstalledVersion() ? $extension->getInstalledVersion() : $extension->getRecentVersion(),
-				$strict,
-				$dependencies
-			);
-		}
-
-		return $thisDependencies;
-	}
-
-	/**
-	 * Get the dependency list.
-	 *
-	 * @param int $version
-	 * @param bool $strict
-	 * @return array
-	 */
-	public function getDependencyList($version = false, $strict = false)
-	{
-		$graph = $this->getDependencyGraph($version, $strict);
-		$list  = array();
-		$this->buildDependencyList($graph, $list);
-		return $list;
-	}
-
-	/**
-	 * Build the dependency list.
-	 *
-	 * @param array $graph
-	 * @param array $list
-	 */
-	protected  function buildDependencyList($graph, &$list)
-	{
-		foreach ($graph as $k=>$v)
-		{
-			if (!isset($list[$k]))
-			{
-				$list[$k] = $v;
-				$this->buildDependencyList($v->dependencies, $list);
 			}
 		}
 	}
