@@ -19,12 +19,31 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
+if (count($argv) != 5) {
+	echo "usage: staticRepository dsn dbUser dbPass outputDir\n";
+	echo "  dsn - database schema name\n";
+	echo "  dbUser - database username\n";
+	echo "  dbPass - database user password\n";
+	echo "  outputDir - output directory\n";
+	exit(1);
+}
+
+if (!is_dir($argv[4])) {
+	echo "outputDir have to be an existing directory!\n";
+	exit(1);
+}
+
+if (!is_writeable($argv[4])) {
+	echo $argv[4] . " is not writeable!\n";
+	exit(1);
+}
+
 function autoload($name)
 {
 	$arrParts = explode('\\', $name);
 
 	if ($arrParts[0] == 'Monolog') {
-		$strFile = __DIR__ . '/../deps/monolog/src/' . implode('/', $arrParts) . '.php';
+		$strFile = __DIR__ . '/../vendor/monolog/monolog/src/' . implode('/', $arrParts) . '.php';
 	} else {
 		$strFile = __DIR__ . '/../src/' . implode('/', $arrParts) . '.php';
 	}
@@ -39,33 +58,65 @@ function autoload($name)
 
 spl_autoload_register('autoload');
 
-$client = new \OpenER2\Client();
+// list of static generated languages, feel free to add your languages here
+$languages = array
+(
+	'de',
+	'en'
+);
 
-// set logger
-$client->getLogger()->pushHandler(new \Monolog\Handler\StreamHandler('php://stderr'));
+// create the logger
+$logger = new \Monolog\Logger('OpenER2Client');
+$logger->pushHandler(new \Monolog\Handler\StreamHandler('php://stderr'));
+
+// create the database connection
+$database = new \PDO(
+	$argv[1],
+	$argv[2],
+	$argv[3],
+	array(
+		\PDO::ATTR_ERRMODE    => \PDO::ERRMODE_EXCEPTION,
+		\PDO::ATTR_PERSISTENT => true
+	));
+$database->exec('SET NAMES UTF8');
+$database->exec('SET CHARACTER SET UTF8');
+
+// create the soap client
+$soap = new \SoapClient('http://www.contao.org/services/repository.wsdl');
+
+// create the er2 client
+$client = new \Contao\OpenER2\Client\Client($logger, $database, $soap);
 
 // set languages
-$client->setLanguages(array('de', 'en'));
-
-// set wsdl url
-$client->setWsdl('http://www.contao.org/services/repository.wsdl');
-
-// set database settings
-$client->setDatabaseDsn($argv[1]);
-$client->setDatabaseUser($argv[2]);
-$client->setDatabasePassword($argv[3]);
-$client->setDatabasePersistent(true);
+$client->setLanguages($languages);
 
 // synchronise the repository
 $repository = $client->getRepository();
 $repository->syncRepository(true);
 
 // serialise the repository information
-$list = array
-(
-	'extensions' => $client->getDatabase()
-		->query("SELECT * FROM open_er2_repository")->fetchAll(\PDO::FETCH_CLASS),
-	'dependencies' => $client->getDatabase()
-		->query("SELECT * FROM open_er2_repository_dependency")->fetchAll(\PDO::FETCH_CLASS)
-);
-echo serialize($list);
+foreach ($languages as $lang) {
+	$file = $argv[4] . '/repository.' . $lang . '.bin';
+
+	$logger->addInfo('Generate static repository information for language ' . $lang . ' into file ' . $file);
+
+	$stmt = $client->getDatabase()->prepare("SELECT * FROM open_er2_repository WHERE language=?");
+	$stmt->bindValue(1, $lang);
+	$stmt->execute();
+	$rows = $stmt->fetchAll(\PDO::FETCH_CLASS);
+
+	file_put_contents($file, serialize($rows));
+	unset($rows, $stmt);
+}
+
+// serialise the dependency information
+$file = $argv[4] . '/dependencies.bin';
+
+$logger->addInfo('Generate static repository dependency information into file ' . $file);
+
+$rows = $client->getDatabase()
+	->query("SELECT * FROM open_er2_repository_dependency")
+	->fetchAll(\PDO::FETCH_CLASS);
+
+file_put_contents($file, serialize($rows));
+unset($rows);
