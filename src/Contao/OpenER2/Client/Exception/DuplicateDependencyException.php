@@ -17,7 +17,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2\Exception;
+namespace Contao\OpenER2\Client\Exception;
 
 /**
  * Class DuplicateDependencyException
@@ -30,30 +30,30 @@ class DuplicateDependencyException extends Exception
 	/**
 	 * The parent dependency.
 	 *
-	 * @var \Contao\OpenER2\Dependency\Dependency
+	 * @var \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	protected $parentDependency;
 
 	/**
 	 * The duplicated dependency.
 	 *
-	 * @var \Contao\OpenER2\Dependency\Dependency
+	 * @var \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	protected $existingDependency;
 
 	/**
 	 * The duplicated dependency.
 	 *
-	 * @var \Contao\OpenER2\Dependency\Dependency
+	 * @var \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	protected $duplicateDependency;
 
 	/**
-	 * @param \Contao\OpenER2\Dependency\Dependency $parentDependency
-	 * @param \Contao\OpenER2\Dependency\Dependency $existingDependency
-	 * @param \Contao\OpenER2\Dependency\Dependency $duplicateDependency
+	 * @param \Contao\OpenER2\Client\Dependency\Dependency $parentDependency
+	 * @param \Contao\OpenER2\Client\Dependency\Dependency $existingDependency
+	 * @param \Contao\OpenER2\Client\Dependency\Dependency $duplicateDependency
 	 */
-	public function __construct(\Contao\OpenER2\Dependency\Dependency $parentDependency, \Contao\OpenER2\Dependency\Dependency $existingDependency, \Contao\OpenER2\Dependency\Dependency $duplicateDependency)
+	public function __construct(\Contao\OpenER2\Client\Dependency\Dependency $parentDependency, \Contao\OpenER2\Client\Dependency\Dependency $existingDependency, \Contao\OpenER2\Client\Dependency\Dependency $duplicateDependency)
 	{
 		parent::__construct('Duplicate dependency');
 
@@ -63,7 +63,7 @@ class DuplicateDependencyException extends Exception
 	}
 
 	/**
-	 * @return \Contao\OpenER2\Dependency\Dependency
+	 * @return \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	public function getParentDependency()
 	{
@@ -71,7 +71,7 @@ class DuplicateDependencyException extends Exception
 	}
 
 	/**
-	 * @return \Contao\OpenER2\Dependency\Dependency
+	 * @return \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	public function getExistingDependency()
 	{
@@ -79,7 +79,7 @@ class DuplicateDependencyException extends Exception
 	}
 
 	/**
-	 * @return \Contao\OpenER2\Dependency\Dependency
+	 * @return \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	public function getDuplicateDependency()
 	{

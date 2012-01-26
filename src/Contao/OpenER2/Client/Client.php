@@ -18,7 +18,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2;
+namespace Contao\OpenER2\Client;
 
 /**
  * Class OpenER2ClientAPI

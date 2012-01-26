@@ -17,7 +17,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2\Exception;
+namespace Contao\OpenER2\Client\Exception;
 
 /**
  * Class UnresolveableDependencyException
@@ -37,19 +37,19 @@ class UnresolveableDependencyException extends Exception
 	/**
 	 * The current dependency.
 	 *
-	 * @var \Contao\OpenER2\Dependency\Dependency
+	 * @var \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	protected $currentDependency;
 
 	/**
 	 * @param stdObject $dependency
-	 * @param \Contao\OpenER2\Dependency\Dependency $current
+	 * @param \Contao\OpenER2\Client\Dependency\Dependency $current
 	 */
-	public function __construct(\stdClass $unresolvedDependency, \Contao\OpenER2\Dependency\Dependency $currentDependency)
+	public function __construct(\stdClass $unresolvedDependency, \Contao\OpenER2\Client\Dependency\Dependency $currentDependency)
 	{
 		parent::__construct('Could not resolve dependency graph. '
 			. 'Searching for ' . $unresolvedDependency->dependsOn . ' from ' . $unresolvedDependency->minVersion . ' to ' . $unresolvedDependency->maxVersion . ', '
-			. 'but require ' . $unresolvedDependency->dependsOn . ' from ' . $currentDependency->getMinVersion() . ' to ' . $currentDependency->getMaxVersion() . ' via ' . implode(', ', array_filter($currentDependency->getParents(), function (\Contao\OpenER2\Dependency\Dependency $dependency) {
+			. 'but require ' . $unresolvedDependency->dependsOn . ' from ' . $currentDependency->getMinVersion() . ' to ' . $currentDependency->getMaxVersion() . ' via ' . implode(', ', array_filter($currentDependency->getParents(), function (\Contao\OpenER2\Client\Dependency\Dependency $dependency) {
 			return $dependency->getExtension()->getName();
 		})));
 		$this->unresolvedDependency = $unresolvedDependency;
@@ -57,7 +57,7 @@ class UnresolveableDependencyException extends Exception
 	}
 
 	/**
-	 * @return \Contao\OpenER2\Exception\stdObject
+	 * @return \Contao\OpenER2\Client\Exception\stdObject
 	 */
 	public function getUnresolvedDependency()
 	{
@@ -65,7 +65,7 @@ class UnresolveableDependencyException extends Exception
 	}
 
 	/**
-	 * @return \Contao\OpenER2\Dependency\Dependency
+	 * @return \Contao\OpenER2\Client\Dependency\Dependency
 	 */
 	public function getCurrentDependency()
 	{

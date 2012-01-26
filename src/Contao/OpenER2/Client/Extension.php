@@ -18,7 +18,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2;
+namespace Contao\OpenER2\Client;
 
 /**
  * Class Extension
@@ -103,7 +103,7 @@ class Extension
 		$stmt->bindValue(1, $name);
 		$stmt->execute();
 		if ($stmt->rowCount() == 0) {
-			throw new \Contao\OpenER2\Exception\UnknownExtensionException($name);
+			throw new \Contao\OpenER2\Client\Exception\UnknownExtensionException($name);
 		}
 
 		$this->client = $client;
@@ -387,7 +387,7 @@ class Extension
 	 *
 	 * @param int $version
 	 * @param bool $strict
-	 * @return \Contao\OpenER2\Dependency\DependencyGraph
+	 * @return \Contao\OpenER2\Client\Dependency\DependencyGraph
 	 */
 	public function getDependencyGraph($version = false, $strict = false)
 	{
@@ -402,7 +402,7 @@ class Extension
 		if (!isset($this->dependencyGraph[$version]))
 		{
 			$tmp = array();
-			$this->dependencyGraph[$version] = new \Contao\OpenER2\Dependency\DependencyGraph($this, $version, $version);
+			$this->dependencyGraph[$version] = new \Contao\OpenER2\Client\Dependency\DependencyGraph($this, $version, $version);
 			$this->calculateDependencyGraph($this->dependencyGraph[$version], $this->dependencyGraph[$version], $version, $strict, $tmp);
 		}
 
@@ -413,10 +413,10 @@ class Extension
 	 * Calculate the dependency graph.
 	 *
 	 * @param array dependencies
-	 * @return \Contao\OpenER2\Dependency\DependencyGraph
+	 * @return \Contao\OpenER2\Client\Dependency\DependencyGraph
 	 */
-	protected function calculateDependencyGraph(\Contao\OpenER2\Dependency\DependencyGraph $graph,
-	                                            \Contao\OpenER2\Dependency\Dependency $thisDependency,
+	protected function calculateDependencyGraph(\Contao\OpenER2\Client\Dependency\DependencyGraph $graph,
+	                                            \Contao\OpenER2\Client\Dependency\Dependency $thisDependency,
 	                                            $version,
 	                                            $strict)
 	{
@@ -467,7 +467,7 @@ class Extension
 			}
 			else
 			{
-				$dep = new \Contao\OpenER2\Dependency\Dependency($dependsOn, $dependency->minVersion, $dependency->maxVersion);
+				$dep = new \Contao\OpenER2\Client\Dependency\Dependency($dependsOn, $dependency->minVersion, $dependency->maxVersion);
 			}
 
 			$thisDependency->addDependency($dep);
@@ -677,7 +677,7 @@ class Extension
 		$response = $this->client->getSoap()
 			->getPackage($request);
 
-		$request = new \Contao\OpenER2\HttpRequestExtended\RequestExtended();
+		$request = new \Contao\OpenER2\Client\HttpRequestExtended\RequestExtended();
 		if (!$request->getUrlEncoded($response->url)) {
 			$this->client->getLogger()
 				->addError('Could not fetch package for ' . $this->name . ', ' . $version . ', ' . $extension->build . ' from ' . $response->url);

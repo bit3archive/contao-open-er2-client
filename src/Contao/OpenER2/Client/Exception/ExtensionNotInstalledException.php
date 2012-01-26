@@ -17,14 +17,37 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2\Dependency;
+namespace Contao\OpenER2\Client\Exception;
 
 /**
- * Class DependencyGraph
+ * Class ExtensionNotInstalledException
  *
  * @copyright InfinitySoft 2011 <http://www.infinitysoft.de>
  * @author    Tristan Lins <tristan.lins@infinitysoft.de>
  */
-class DependencyGraph extends Dependency
+class ExtensionNotInstalledException extends \Exception
 {
+	/**
+	 * @var string
+	 */
+	protected $extension;
+
+	/**
+	 * @param string $extension
+	 */
+	public function __construct($extension)
+	{
+		parent::__construct(sprintf('The extension "%s" is not installed!', $extension));
+		$this->extension = $extension;
+	}
+
+	/**
+	 * Get the extension name.
+	 *
+	 * @return string
+	 */
+	public function getExtension()
+	{
+		return $this->extension;
+	}
 }

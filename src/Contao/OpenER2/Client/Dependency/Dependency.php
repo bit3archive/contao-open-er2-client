@@ -17,7 +17,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2\Dependency;
+namespace Contao\OpenER2\Client\Dependency;
 
 /**
  * Class Dependency
@@ -30,7 +30,7 @@ class Dependency
 	/**
 	 * The extension, this dependency belongs to.
 	 *
-	 * @var \Contao\OpenER2\Extension
+	 * @var \Contao\OpenER2\Client\Extension
 	 */
 	protected $extension;
 
@@ -65,11 +65,11 @@ class Dependency
 	/**
 	 * Create a new dependency.
 	 *
-	 * @param \Contao\OpenER2\Extension $extension
+	 * @param \Contao\OpenER2\Client\Extension $extension
 	 * @param int $minVersion
 	 * @param int $maxVersion
 	 */
-	public function __construct(\Contao\OpenER2\Extension $extension, $minVersion = 0, $maxVersion = 0)
+	public function __construct(\Contao\OpenER2\Client\Extension $extension, $minVersion = 0, $maxVersion = 0)
 	{
 		$this->extension = $extension;
 		$this->minVersion = $minVersion;
@@ -77,15 +77,15 @@ class Dependency
 	}
 
 	/**
-	 * @param \Contao\OpenER2\Extension $extension
+	 * @param \Contao\OpenER2\Client\Extension $extension
 	 */
-	public function setExtension(\Contao\OpenER2\Extension $extension)
+	public function setExtension(\Contao\OpenER2\Client\Extension $extension)
 	{
 		$this->extension = $extension;
 	}
 
 	/**
-	 * @return \Contao\OpenER2\Extension
+	 * @return \Contao\OpenER2\Client\Extension
 	 */
 	public function getExtension()
 	{
@@ -155,7 +155,7 @@ class Dependency
 	{
 		if (isset($this->dependencies[$dependency->getExtension()->getName()]))
 		{
-			$exception = \Contao\OpenER2\Exception\DuplicateDependencyException($this,
+			$exception = \Contao\OpenER2\Client\Exception\DuplicateDependencyException($this,
 				$this->dependencies[$dependency->getExtension()->getName()],
 				$dependency);
 
@@ -192,12 +192,12 @@ class Dependency
 	/**
 	 * Check if the dependency chain contains a extension.
 	 *
-	 * @param \Contao\OpenER2\Extension $extension
-	 * @return \Contao\OpenER2\Dependency\Dependency
+	 * @param \Contao\OpenER2\Client\Extension $extension
+	 * @return \Contao\OpenER2\Client\Dependency\Dependency
 	 */
-	public function dependsOn(\Contao\OpenER2\Extension $extension)
+	public function dependsOn(\Contao\OpenER2\Client\Extension $extension)
 	{
-		/** @var \Contao\OpenER2\Dependency $dependency */
+		/** @var \Contao\OpenER2\Client\Dependency $dependency */
 
 		// check if this direct dependencies contains the requested extension
 		foreach ($this->dependencies as $dependency)
@@ -239,7 +239,7 @@ class Dependency
 		while (count($tmp)) {
 			$parent = array_pop($tmp);
 
-			/** @var \Contao\OpenER2\Dependency\Dependency $dependency */
+			/** @var \Contao\OpenER2\Client\Dependency\Dependency $dependency */
 			foreach ($parent->dependencies as $dependency)
 			{
 				if (!isset($list[$dependency->getExtension()->getName()]))

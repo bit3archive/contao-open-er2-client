@@ -22,7 +22,7 @@
  * Copyright (C) 2005-2011 Leo Feyer
  */
 
-namespace Contao\OpenER2;
+namespace Contao\OpenER2\Client;
 
 /**
  * Class DbInstaller

@@ -17,7 +17,7 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2\Exception;
+namespace Contao\OpenER2\Client\Exception;
 
 /**
  * Class ExtensionAllreadyInstalledException

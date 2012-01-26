@@ -17,55 +17,37 @@
  * If not, see <http://www.gnu.org/licenses/>.
  */
 
-namespace Contao\OpenER2\Exception;
+namespace Contao\OpenER2\Client\Exception;
 
 /**
- * Class ExtensionAllreadyInstalledException
+ * Class UnknownExtensionException
  *
  * @copyright InfinitySoft 2011 <http://www.infinitysoft.de>
  * @author    Tristan Lins <tristan.lins@infinitysoft.de>
  */
-class FetchPackageException extends \Exception
+class UnknownExtensionException extends Exception
 {
 	/**
+	 * The extension name.
+	 *
 	 * @var string
 	 */
-	protected $extension;
+	protected $name;
 
 	/**
-	 * @var int
+	 * @param string $name
 	 */
-	protected $version;
-
-	/**
-	 * @var build
-	 */
-	protected $build;
-
-	/**
-	 * @var string
-	 */
-	protected $url;
-
-	/**
-	 * @param string $extension
-	 */
-	public function __construct($extension, $version, $build, $url)
+	public function __construct($name)
 	{
-		parent::__construct(sprintf('The package for extension "%s" %s.%s could not be fetched from "%s"!', $extension, $url));
-		$this->extension = $extension;
-		$this->version = $version;
-		$this->build = $build;
-		$this->url = $url;
+		parent::__construct('Could not find extension ' . $name . ' in the repository (did you sync your repository?).');
+		$this->name = $name;
 	}
 
 	/**
-	 * Get the extension name.
-	 *
 	 * @return string
 	 */
-	public function getExtension()
+	public function getName()
 	{
-		return $this->extension;
+		return $this->name;
 	}
 }
