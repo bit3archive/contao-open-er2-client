@@ -31,102 +31,18 @@ namespace Contao\OpenER2\Client;
 class Client
 {
 	/**
-	 * Static repository url.
-	 *
-	 * @var string
-	 */
-	protected $staticRepositoryUrl = 'http://contao.infinitysoft.de/open_er2/staticRepository.bin';
-
-	/**
-	 * The ER2 wsdl url.
-	 *
-	 * @var string
-	 */
-	protected $wsdl = 'http://www.contao.org/services/repository.wsdl';
-
-	/**
-	 * The database dsn.
-	 *
-	 * @var string
-	 */
-	protected $databaseDsn = '';
-
-	/**
-	 * The database user.
-	 *
-	 * @var string
-	 */
-	protected $databaseUser = '';
-
-	/**
-	 * The database password.
-	 *
-	 * @var string
-	 */
-	protected $databasePassword = '';
-
-	/**
-	 * Use persistend database connection.
-	 *
-	 * @var string
-	 */
-	protected $databasePersistent = false;
-
-	/**
-	 * The database charset.
-	 *
-	 * @var string
-	 */
-	protected $databaseCharset = 'UTF8';
-
-	/**
-	 * Automatic update database schema.
-	 *
-	 * @var bool
-	 */
-	protected $databaseAutoUpdate = true;
-
-	/**
-	 * The installation root path.
-	 *
-	 * @var string
-	 */
-	protected $installationRootPath = '';
-
-	/**
-	 * Be compatible to original Contao ER2 client.
-	 *
-	 * @var bool
-	 */
-	protected $contaoER2Compat = true;
-
-	/**
-	 * The tl_files path.
-	 *
-	 * @var string
-	 */
-	protected $tlFilesPath = 'tl_files';
-
-	/**
-	 * The current contao version.
-	 *
-	 * @var int
-	 */
-	protected $contaoVersion;
-
-	/**
-	 * Languages to synchronise.
-	 *
-	 * @var array
-	 */
-	protected $languages = array('en');
-
-	/**
 	 * The logger.
 	 *
 	 * @var \Monolog\Logger
 	 */
 	protected $logger;
+
+	/**
+	 * The database pdo instance.
+	 *
+	 * @var \PDO
+	 */
+	protected $database = null;
 
 	/**
 	 * The Soap Client instance.
@@ -136,11 +52,53 @@ class Client
 	protected $soap = null;
 
 	/**
-	 * The database pdo instance.
+	 * The installation root path.
 	 *
-	 * @var \PDO
+	 * @var string
 	 */
-	protected $database = null;
+	protected $installationRootPath = '';
+
+	/**
+	 * The tl_files path.
+	 *
+	 * @var string
+	 */
+	protected $filesPath = 'tl_files';
+
+	/**
+	 * The current contao version.
+	 *
+	 * @var int
+	 */
+	protected $contaoVersion;
+
+	/**
+	 * Automatic update database schema.
+	 *
+	 * @var bool
+	 */
+	protected $databaseAutoUpdate = true;
+
+	/**
+	 * Database auto update is run.
+	 *
+	 * @var bool
+	 */
+	protected $databaseUpdated = false;
+
+	/**
+	 * Be compatible to original Contao ER2 client.
+	 *
+	 * @var bool
+	 */
+	protected $contaoER2Compat = true;
+
+	/**
+	 * Languages to synchronise.
+	 *
+	 * @var array
+	 */
+	protected $languages = array('en');
 
 	/**
 	 * The repository instance.
@@ -157,139 +115,54 @@ class Client
 	protected $licenseRegistry;
 
 	/**
+	 * Static repository url.
+	 *
+	 * @var string
+	 */
+	protected $staticRepositoryUrl = 'http://contao.infinitysoft.de/open_er2/staticRepository.bin';
+
+	/**
 	 *
 	 */
-	public function __construct()
+	public function __construct(\Monolog\Logger $logger, \PDO $database, \SoapClient $soap)
 	{
-		$this->logger = new \Monolog\Logger('OpenER2Client');
+		$this->logger = $logger;
+		$this->database = $database;
+		$this->soap = $soap;
+		$this->installationRootPath = getcwd();
 	}
 
 	/**
-	 * @param string $staticRepositoryUrl
+	 * @return \Monolog\Logger
 	 */
-	public function setStaticRepositoryUrl($staticRepositoryUrl)
+	public function getLogger()
 	{
-		$this->staticRepositoryUrl = $staticRepositoryUrl;
+		return $this->logger;
 	}
 
 	/**
-	 * @return string
+	 * @return \PDO
 	 */
-	public function getStaticRepositoryUrl()
+	public function getDatabase()
 	{
-		return $this->staticRepositoryUrl;
+		if ($this->databaseAutoUpdate && !$this->databaseUpdated)
+		{
+			$this->databaseAutoUpdate = false;
+			$this->databaseUpdated = true;
+			$this->updateDatabaseSchema();
+		}
+
+		return $this->database;
 	}
 
 	/**
-	 * @param string $wsdl
+	 * Get the er2 soap client.
+	 *
+	 * @return \SoapClient
 	 */
-	public function setWsdl($wsdl)
+	public function getSoap()
 	{
-		$this->wsdl = $wsdl;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getWsdl()
-	{
-		return $this->wsdl;
-	}
-
-	/**
-	 * @param string $databaseDsn
-	 */
-	public function setDatabaseDsn($databaseDsn)
-	{
-		$this->databaseDsn = $databaseDsn;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getDatabaseDsn()
-	{
-		return $this->databaseDsn;
-	}
-
-	/**
-	 * @param string $databaseUser
-	 */
-	public function setDatabaseUser($databaseUser)
-	{
-		$this->databaseUser = $databaseUser;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getDatabaseUser()
-	{
-		return $this->databaseUser;
-	}
-
-	/**
-	 * @param string $databasePassword
-	 */
-	public function setDatabasePassword($databasePassword)
-	{
-		$this->databasePassword = $databasePassword;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getDatabasePassword()
-	{
-		return $this->databasePassword;
-	}
-
-	/**
-	 * @param string $databasePersistent
-	 */
-	public function setDatabasePersistent($databasePersistent)
-	{
-		$this->databasePersistent = $databasePersistent;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getDatabasePersistent()
-	{
-		return $this->databasePersistent;
-	}
-
-	/**
-	 * @param string $databaseCharset
-	 */
-	public function setDatabaseCharset($databaseCharset)
-	{
-		$this->databaseCharset = $databaseCharset;
-	}
-
-	/**
-	 * @return string
-	 */
-	public function getDatabaseCharset()
-	{
-		return $this->databaseCharset;
-	}
-
-	/**
-	 * @param boolean $databaseAutoUpdate
-	 */
-	public function setDatabaseAutoUpdate($databaseAutoUpdate)
-	{
-		$this->databaseAutoUpdate = $databaseAutoUpdate;
-	}
-
-	/**
-	 * @return boolean
-	 */
-	public function getDatabaseAutoUpdate()
-	{
-		return $this->databaseAutoUpdate;
+		return $this->soap;
 	}
 
 	/**
@@ -309,35 +182,19 @@ class Client
 	}
 
 	/**
-	 * @param boolean $contaoER2Compat
+	 * @param string $filesPath
 	 */
-	public function setContaoER2Compat($contaoER2Compat)
+	public function setFilesPath($filesPath)
 	{
-		$this->contaoER2Compat = $contaoER2Compat;
-	}
-
-	/**
-	 * @return boolean
-	 */
-	public function isContaoER2Compat()
-	{
-		return $this->contaoER2Compat;
-	}
-
-	/**
-	 * @param string $tlFilesPath
-	 */
-	public function setTlFilesPath($tlFilesPath)
-	{
-		$this->tlFilesPath = $tlFilesPath;
+		$this->filesPath = $filesPath;
 	}
 
 	/**
 	 * @return string
 	 */
-	public function getTlFilesPath()
+	public function getFilesPath()
 	{
-		return $this->tlFilesPath;
+		return $this->filesPath;
 	}
 
 	/**
@@ -368,6 +225,38 @@ class Client
 	}
 
 	/**
+	 * @param boolean $databaseAutoUpdate
+	 */
+	public function setDatabaseAutoUpdate($databaseAutoUpdate)
+	{
+		$this->databaseAutoUpdate = $databaseAutoUpdate;
+	}
+
+	/**
+	 * @return boolean
+	 */
+	public function getDatabaseAutoUpdate()
+	{
+		return $this->databaseAutoUpdate;
+	}
+
+	/**
+	 * @param boolean $contaoER2Compat
+	 */
+	public function setContaoER2Compat($contaoER2Compat)
+	{
+		$this->contaoER2Compat = $contaoER2Compat;
+	}
+
+	/**
+	 * @return boolean
+	 */
+	public function isContaoER2Compat()
+	{
+		return $this->contaoER2Compat;
+	}
+
+	/**
 	 * @param array $languages
 	 */
 	public function setLanguages($languages)
@@ -381,55 +270,6 @@ class Client
 	public function getLanguages()
 	{
 		return $this->languages;
-	}
-
-	/**
-	 * @return \Monolog\Logger
-	 */
-	public function getLogger()
-	{
-		return $this->logger;
-	}
-
-	/**
-	 * Get the er2 soap client.
-	 *
-	 * @return \SoapClient
-	 */
-	public function getSoap()
-	{
-		if ($this->soap == null)
-		{
-			$this->soap = new \SoapClient($this->wsdl);
-		}
-
-		return $this->soap;
-	}
-
-	/**
-	 * @return \PDO
-	 */
-	public function getDatabase()
-	{
-		if ($this->database == null)
-		{
-			$this->database = new \PDO($this->databaseDsn,
-				$this->databaseUser,
-				$this->databasePassword,
-				array(
-					\PDO::ATTR_ERRMODE    => \PDO::ERRMODE_EXCEPTION,
-					\PDO::ATTR_PERSISTENT => $this->databasePersistent
-				));
-			$this->database->exec('SET NAMES ' . $this->databaseCharset);
-			$this->database->exec('SET CHARACTER SET ' . $this->databaseCharset);
-
-			if ($this->databaseAutoUpdate)
-			{
-				$this->updateDatabaseSchema();
-			}
-		}
-
-		return $this->database;
 	}
 
 	/**
@@ -494,5 +334,21 @@ class Client
 		}
 
 		return $this->licenseRegistry;
+	}
+
+	/**
+	 * @param string $staticRepositoryUrl
+	 */
+	public function setStaticRepositoryUrl($staticRepositoryUrl)
+	{
+		$this->staticRepositoryUrl = $staticRepositoryUrl;
+	}
+
+	/**
+	 * @return string
+	 */
+	public function getStaticRepositoryUrl()
+	{
+		return $this->staticRepositoryUrl;
 	}
 }

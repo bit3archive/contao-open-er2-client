@@ -706,7 +706,7 @@ class Extension
 			if (preg_match('#^TL_ROOT/#', $name)) {
 				$path = substr($name, 8);
 			} else if (preg_match('#^TL_FILES/#', $name)) {
-				$path = $this->client->getTlFilesPath() . '/' . substr($name, 9);
+				$path = $this->client->getFilesPath() . '/' . substr($name, 9);
 			} else {
 				continue;
 			}
