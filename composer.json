@@ -1,0 +1,6 @@
+{
+	"name": "InfinitySoft/OpenER2Client",
+    "require": {
+        "monolog/monolog": "1.0.2"
+    }
+}

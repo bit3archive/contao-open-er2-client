@@ -26,7 +26,7 @@ spl_autoload_register(function($name)
 	$arrParts = explode('\\', $name);
 
 	if ($arrParts[0] == 'Monolog') {
-		$strFile = __DIR__ . '/../deps/monolog/src/' . implode('/', $arrParts) . '.php';
+		$strFile = __DIR__ . '/../vendor/monolog/monolog/src/' . implode('/', $arrParts) . '.php';
 	} else {
 		$strFile = __DIR__ . '/../src/' . implode('/', $arrParts) . '.php';
 	}
