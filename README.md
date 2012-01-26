@@ -18,7 +18,9 @@ This client work with a local copy of the er3 repository data.
 The local repository data can be synchronised by calling Repositry::syncRepository().
 A initial synchronisation takes a lot of time, after this every additional sync is only incremental.
 To shorten the initial synchronisation, a daily static dump is available at
-http://contao.infinitysoft.de/open_er2/staticRepository.bin
+http://contao.infinitysoft.de/open_er2/repository.en.bin - english repository information
+http://contao.infinitysoft.de/open_er2/repository.de.bin - german repository information
+http://contao.infinitysoft.de/open_er2/dependencies.bin - dependency information
 This is a serialized array of the database rows.
 
-If you want to create your own static dump, have a look on the bin/staticRepository shell script.
+If you want to create your own static dump, in your own languages, have a look on the bin/staticRepository shell script.
