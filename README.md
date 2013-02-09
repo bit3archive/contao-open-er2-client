@@ -1,7 +1,7 @@
 # Open ER2 Client API
 
 This is an open Contao extension repository 2 client api,
-that can be used to manage Contao extensions in an Ccontao installation.
+that can be used to manage Contao extensions in an Contao installation.
 
 The api is designed to *not* require the Contao framework,
 but it may be used within Contao extensions.
